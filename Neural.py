@@ -1,8 +1,18 @@
+""" Copyright (c) 2011, Joseph M Wright
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+
+  * Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+  * Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+"""
+
 #import numpy as np
 from scipy.cluster.vq import vq, kmeans, whiten
 from numpy import linalg as LA
 from numpy import array, mean
-
 
 
 import itertools
@@ -14,12 +24,12 @@ import string
 random.seed((1000,2000))
 
 #TODO:
-# categorey maker (+redundancy remover, tension splitter
+# category maker (+redundancy remover, tension splitter
 # back propagation :: display expectations
 # high/low finder don't know 
-# bayesean thing
+# Bayesian thing
 
-def distance(a,b): #codomain =[0..1]
+def distance(a,b): #co-domain =[0..1]
     """euclidean normalized distance between two vectors"""
     shorter=min(len(a),len(b))
     return 1-(LA.norm(a-b)/math.sqrt(shorter*1.0))
@@ -33,27 +43,27 @@ def distance(a,b): #codomain =[0..1]
     return 1-math.sqrt(s/(shorter*1.0))
 
 class Node:
-    """A single 'nueron'"""
+    """A single 'neuron'"""
     def __init__(self,size,memory=200):
         self.name   = "" #name to refer 
-        self.disc = "" #discription of node
+        self.disc = "" #description of node
         self.output = [] #output layer buffer
         self.input  = [] #input layer buffer
 
         self.source = 0  #source node or not
-        self.file   = "" #file source to querry
+        self.file   = "" #file source to query
         self.blocksize=20 # number of chars to pull at a time
 
         self.age    = 0
         self.bias   = [] #a prior prob
         self.mem    = memory # history buffer size
         self.hist   = [] #history 
-        self.k      = [] #cateogoreys
+        self.k      = [] #categories
         self.size   = size #number of inputs
         self.offset = 0
         self.inmap  = [] #3-tuples of (layer,node,slot)
         self.slots  = [] #normalized inmap
-        self.r      = 0.5 #introvert or extravert
+        self.r      = 0.5 #introvert or extrovert
         self.margin = 0.2 #margin of error
 
     def makesource(self,source,blocksize=20):
@@ -116,7 +126,7 @@ class Node:
         if(0):
             return 0
 
-        #append to history
+       #append to history
         if len(self.hist)>=self.mem:#add to history
             self.hist.pop(0)
         self.hist.append(x)       
@@ -146,7 +156,7 @@ class Node:
         return 1  
 
     def show(self):
-        print "============"
+        print"============"
         print "Inputs:",self.inmap,"or",self.slots
         print "BIAS:",
         for x in self.bias:
@@ -154,7 +164,7 @@ class Node:
         print "\n\nCATEGORIES:"
         for x in self.k:
             print x
-        print "\nCurent:"
+        print "\nCurrent:"
         print self.input
         print "\n\nHISTORY (last 10)"
         for x in self.hist[:10]:
@@ -169,7 +179,7 @@ class Node:
 #############################################
 
 def topo(seq):
-    """converts node inmaps to regular indexies"""
+    """converts node inmaps to regular indexes"""
     first=seq[0]
     k=[first]
     prev=0
@@ -199,7 +209,7 @@ class Layer:
         self.length += 1
 
     def metric(self):
-        """Return the dimensions of output layer; a list of the sizes of the outputlayer"""
+        """Return the dimensions of output layer; a list of the sizes of the output layer"""
         bytesize=8
         size=[]
         for node in self.nodes:
