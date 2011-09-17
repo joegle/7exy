@@ -1,0 +1,11 @@
+Import Neural into your python program to use it:
+import Neural
+
+Create a network, Bob, ready to learn with: 
+Bob=Neural.Network()
+
+Run Example.py with:
+$ python Example.py
+
+
+Better docs to come
