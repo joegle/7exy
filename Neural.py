@@ -14,14 +14,13 @@ from scipy.cluster.vq import vq, kmeans, whiten
 from numpy import linalg as LA
 from numpy import array, mean
 
-
 import itertools
 import math
 import random
 import copy
 import itertools
 import string
-random.seed((1000,2000))
+#random.seed((1000,2000))
 
 #TODO:
 # category maker (+redundancy remover, tension splitter
@@ -44,7 +43,7 @@ def distance(a,b): #co-domain =[0..1]
 
 class Node:
     """A single 'neuron'"""
-    def __init__(self,size,memory=200):
+    def __init__(self,size,memory=1000):
         self.name   = "" #name to refer 
         self.disc = "" #description of node
         self.output = [] #output layer buffer
@@ -152,7 +151,7 @@ class Node:
 
         # Actual computation
         self.bias=array(self.hist).mean(axis=0)
-        print self.age,self.mem,self.bias
+#        print self.age,self.mem,self.bias
         return 1  
 
     def show(self):
@@ -191,6 +190,7 @@ def topo(seq):
 class Layer:
     """A single layer of nodes"""
     def __init__(self,nodenum,insize,memsize):
+        self.level = 0
         self.length       = nodenum
         self.nodes        = []
         self.output_layer = []
@@ -213,7 +213,7 @@ class Layer:
         bytesize=8
         size=[]
         for node in self.nodes:
-            if(node.source==0):
+            if(node.source == 0):
                 size.append(len(node.k))
             else:
                 size.append(bytesize*node.blocksize)
@@ -277,6 +277,7 @@ def fairChoice(metric):
 
 class Network:
     def __init__(self):
+        self.shape=[]
         self.layers=[]
 
     def __getitem__(self,n):
@@ -284,12 +285,25 @@ class Network:
 
     def addLayer(self): #on top
         self.layers.append(Layer(0,20,20))
+        self.layers[-1].level=len(self.layers)
+    
 
     def addNode(self,level):
         "Add node to a certain layer"
         if level > len(self.layers)-1:
             level=len(self.layers)-1
         self[level].addBlankNode()
+
+    def throwNode(self,level,n):
+        "Random connect a node to a layer with n inputs"
+        self.addNode(level)
+
+        for y in range(n):
+            randomNode = random.randint(1, self[level-1].length)-1
+            slot=[]
+            for x in self[level-1][randomNode].output.shape:
+                slot.append(random.randint(0,x-1))
+            self[level][-1].connect([level-1,randomNode,slot])
         
     def addSource(self,src_file,blocksize):
         if len(self.layers)==0:
@@ -307,6 +321,52 @@ class Network:
             level-=1
             print
         print 
+
+    def readMatrix(self,matrix):
+        """Puts a new matrix into the source node"""
+        self[0][-1].output = matrix
+        
+    def pullup(self,level):
+        "Like pushup()"
+        if level!=0:
+            for node in self.layers[level]:
+                values=[]
+                for cn in node.inmap:
+                    sl=cn[2]
+                    values.append(self[cn[0]][cn[1]].output[sl[0]][sl[1]][sl[2]])
+                node.readin(values)
+        
+    def pushup(self,level):
+        "Sends input up to the next layer"
+        if level==0:
+            for node in self.layers[0]:
+                node.pullblock()
+                return 1
+        for node in self.layers[level]:#####
+            tmp=[]
+            for x in node.inmap:
+                tmp.append(self[x[0]][x[1]][x[2]])
+            node.readin(tmp)
+        return 1
+
+    def cycle(self):
+#       "Processes one epoch"
+        for x in range(len(self.layers)):
+            self.pushup(x)
+#            print x,self[x].output()####
+
+    def attachNode(self,layer,number_of_inputs):
+        "Adds a node to a non-source layer with input random connections"
+        if layer:
+            self.addNode(layer)
+            metric=self[layer-1].metric()
+            s=sum(metric)
+            for x in range(number_of_inputs):
+                connection=[layer-1]+fairChoice(metric)
+                while(connection in self[layer][-1].inmap):
+#                    print connection
+                    connection=[layer-1]+fairChoice(metric)
+                self[layer][-1].connect(connection)
 
     def graph(self):
         #dot -Tpng graph.dot > output.png
@@ -363,35 +423,6 @@ class Network:
         f.write("}")
         f.close()
 
-    def pushup(self,level):
-        "Sends input up to the next layer"
-        if level==0:
-            for node in self.layers[0]:
-                node.pullblock()
-                return 1
-        for node in self.layers[level]:#####
-            tmp=[]
-            for x in node.inmap:
-                tmp.append(self[x[0]][x[1]][x[2]])
-            node.readin(tmp)
-        return 1
 
-    def cycle(self):
-#       "Processes one epoch"
-        for x in range(len(self.layers)):
-            self.pushup(x)
-#            print x,self[x].output()####
 
-    def attachNode(self,layer,number_of_inputs):
-        "Adds a node to a non-source layer with input random connections"
-        if layer:
-            self.addNode(layer)
-            metric=self[layer-1].metric()
-            s=sum(metric)
-            for x in range(number_of_inputs):
-                connection=[layer-1]+fairChoice(metric)
-                while(connection in self[layer][-1].inmap):
-#                    print connection
-                    connection=[layer-1]+fairChoice(metric)
-                self[layer][-1].connect(connection)
 
