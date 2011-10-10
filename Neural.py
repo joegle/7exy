@@ -103,7 +103,6 @@ class Node:
         self.output=[]
         self.input=x[0:self.size]
 
-
         self.updateHistory(self.input)
 
         # now compute output
@@ -294,6 +293,22 @@ class Network:
             level=len(self.layers)-1
         self[level].addBlankNode()
 
+    def throwNodeNormal(self,sigma,n):
+        "Throw a node to watch the 2D input, with random center and spread of sigma on gauss with n inputs"
+        self.addNode(1)
+        # assuming one input matrix for now
+        slots=[]
+        for limit in self[0][0].output.shape:
+            center=random.randint(0,limit-1)
+            slots.append([])
+            for x in range(n):
+                ans=int(random.gauss(center,sigma))
+                if ans<0: ans=0
+                elif ans>limit-1: ans=limit-1
+                slots[-1].append(ans)
+        for slot in zip(*slots):
+            self[1][-1].connect([0,0,slot])
+
     def throwNode(self,level,n):
         "Random connect a node to a layer with n inputs"
         self.addNode(level)
@@ -422,7 +437,6 @@ class Network:
             l+=1
         f.write("}")
         f.close()
-
 
 
 
