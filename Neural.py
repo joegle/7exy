@@ -9,7 +9,7 @@ Redistribution and use in source and binary forms, with or without modification,
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 
-#import numpy as np
+import numpy as np
 from scipy.cluster.vq import vq, kmeans, whiten
 from numpy import linalg as LA
 from numpy import array, mean
@@ -54,9 +54,10 @@ class Node:
         self.blocksize=20 # number of chars to pull at a time
 
         self.age    = 0
-        self.bias   = [] #a prior prob
+        self.bias   = np.empty(1) #a prior prob
         self.mem    = memory # history buffer size
         self.hist   = [] #history 
+        self.ohist  = [] #output history
         self.k      = [] #categories
         self.size   = size #number of inputs
         self.offset = 0
@@ -107,14 +108,16 @@ class Node:
 
         # now compute output
         for cat in self.k:
-            self.output.append(distance(cat,self.input))
+            diff=distance(cat,self.input)
+            self.output.append(diff)
+            self.ohist.append(diff)
 
         self.calcBias()
-        self.cluster()
+        self.cluster(2)
         # now compute expectations
 
     def cluster(self,n=4):
-        if len(self.k)==0 and random.randint(0,self.mem)==0:
+        if len(self.k)==0 and self.age>self.mem:
             self.k.extend(kmeans(array(self.hist),n)[0])
 
         
