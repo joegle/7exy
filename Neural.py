@@ -14,6 +14,7 @@ from scipy.cluster.vq import vq, kmeans, whiten
 from numpy import linalg as LA
 from numpy import array, mean
 
+import pickle
 import itertools
 import math
 import random
@@ -53,13 +54,14 @@ class Node:
         self.file   = "" #file source to query
         self.blocksize=20 # number of chars to pull at a time
 
+        self.size   = size #number of inputs
         self.age    = 0
-        self.bias   = np.empty(1) #a prior prob
+        self.bias   = np.zeros([self.size+3]) #a prior prob
         self.mem    = memory # history buffer size
         self.hist   = [] #history 
         self.ohist  = [] #output history
         self.k      = [] #categories
-        self.size   = size #number of inputs
+
         self.offset = 0
         self.inmap  = [] #3-tuples of (layer,node,slot)
         self.slots  = [] #normalized inmap
@@ -210,6 +212,8 @@ class Layer:
         self.nodes.append(x)
         self.length += 1
 
+     
+
     def metric(self):
         """Return the dimensions of output layer; a list of the sizes of the output layer"""
         bytesize=8
@@ -221,9 +225,9 @@ class Layer:
                 size.append(bytesize*node.blocksize)
         return size
 
-    def addBlankNode(self):
+    def addBlankNode(self,memory=1000):
         self.length+=1
-        self.nodes.append(Node(0))
+        self.nodes.append(Node(0,memory))
         
     def killNode(self,x):
         self.length-=1
@@ -288,17 +292,16 @@ class Network:
     def addLayer(self): #on top
         self.layers.append(Layer(0,20,20))
         self.layers[-1].level=len(self.layers)
-    
 
-    def addNode(self,level):
+    def addNode(self,level,memory=1000):
         "Add node to a certain layer"
         if level > len(self.layers)-1:
             level=len(self.layers)-1
-        self[level].addBlankNode()
+        self[level].addBlankNode(memory)
 
     def throwNodeNormal(self,sigma,n):
         "Throw a node to watch the 2D input, with random center and spread of sigma on gauss with n inputs"
-        self.addNode(1)
+        self.addNode(1,100)
         # assuming one input matrix for now
         slots=[]
         for limit in self[0][0].output.shape:
