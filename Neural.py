@@ -23,24 +23,10 @@ import itertools
 import string
 #random.seed((1000,2000))
 
-#TODO:
-# category maker (+redundancy remover, tension splitter
-# back propagation :: display expectations
-# high/low finder don't know 
-# Bayesian thing
-
 def distance(a,b): #co-domain =[0..1]
     """euclidean normalized distance between two vectors"""
     shorter=min(len(a),len(b))
     return 1-(LA.norm(a-b)/math.sqrt(shorter*1.0))
-
-    # this was the old way
-    #  there is no size checking anymore
-    shorter=min(len(a),len(b))
-    s=0
-    for x in range(shorter):
-        s+= (a[x]-b[x])**2
-    return 1-math.sqrt(s/(shorter*1.0))
 
 class Node:
     """A single 'neuron'"""
@@ -68,13 +54,6 @@ class Node:
         self.r      = 0.5 #introvert or extrovert
         self.margin = 0.2 #margin of error
 
-    def makesource(self,source,blocksize=20):
-        "Make this node read in n chars from a file"
-        self.source = 1
-        self.file = source
-        self.blocksize=blocksize
-        self.fstream=open(self.file,'r')
-
     def connect(self,layer_node_slot):
         """make a connection to this node to a (layer,node,slot)
         updates inmap"""
@@ -82,22 +61,8 @@ class Node:
             self.inmap.append(layer_node_slot)
             self.size+=1
 
-    def pullblock(self):
-        """Pull one block of chars into node
-        self.output becomes these values"""
-        self.output=[]
-        for x in range(self.blocksize):
-            try:
-                char=ord(self.fstream.read(1))
-            except TypeError:
-                break
-            s=[]
-            for b in [0,1,2,3,4,5,6,7]:
-                s.append((char>>b)&1)
-            self.output.extend(s)
-        self.input=self.output
-           
     def __getitem__(self,n):
+        # Don't depend on this 
         return self.output[n]
          
     def readin(self,x):
@@ -122,7 +87,6 @@ class Node:
         if len(self.k)==0 and self.age>self.mem:
             self.k.extend(kmeans(array(self.hist),n)[0])
 
-        
     def updateHistory(self,x):
         """Add this term to the history"""
         # Condition
@@ -134,17 +98,6 @@ class Node:
             self.hist.pop(0)
         self.hist.append(x)       
         return 1
-
-
-    def formInmap2(self,spread,scale):
-        """spread (0-1) zero is random;1 is linear, scale is the size of the frame the node is on"""
-        print "lol-formInmap2" 
-
-    def addCat(self,x):
-        self.k.append(x)
-
-    def formCats(self,n):
-        self.k.extend(random.sample(self.hist,n))
 
     def calcBias(self):
         """Update the bias vector of expected value for inputs"""
@@ -158,43 +111,14 @@ class Node:
 #        print self.age,self.mem,self.bias
         return 1  
 
-    def show(self):
-        print"============"
-        print "Inputs:",self.inmap,"or",self.slots
-        print "BIAS:",
-        for x in self.bias:
-            print round(x,3),
-        print "\n\nCATEGORIES:"
-        for x in self.k:
-            print x
-        print "\nCurrent:"
-        print self.input
-        print "\n\nHISTORY (last 10)"
-        for x in self.hist[:10]:
-            print x
-        print "\n\nOUTPUT"
-        for x in self.output:
-            print round(x,3),
-        print 
-
 #############################################
 ########## Layer ############################
 #############################################
 
-def topo(seq):
-    """converts node inmaps to regular indexes"""
-    first=seq[0]
-    k=[first]
-    prev=0
-    for x in seq[1:]:
-        k.append(x+k[prev])
-    return k
-
-
 class Layer:
     """A single layer of nodes"""
     def __init__(self,nodenum,insize,memsize):
-        self.level = 0
+        self.level        = 0
         self.length       = nodenum
         self.nodes        = []
         self.output_layer = []
@@ -205,14 +129,13 @@ class Layer:
             self.nodes.append(Node(insize,memsize))
 
 #   def stats(self):
+
     def __getitem__(self,n):
         return self.nodes[n]
 
     def append(self,x):
         self.nodes.append(x)
         self.length += 1
-
-     
 
     def metric(self):
         """Return the dimensions of output layer; a list of the sizes of the output layer"""
@@ -239,47 +162,9 @@ class Layer:
             self.output_layer.append(x.output)
         return self.output_layer
 
-    def showNodes(self,n=-1):
-        #make this more interactive
-        if n==-1:
-            for x in self.nodes:
-                x.show()
-        else:
-            self.nodes[n].show()
-
-    def showTopology(self):
-        """returns topology of layer"""
-            
-    def show(self):
-        spread=100
-        print "="*10,
-        print "LAYER DATA",
-        print "="*10,
-        print self.length,"Nodes"
-        print "  Ins Mem Map"
-        k=0
-        al="ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()"
-        for x in self.nodes:
-            print "{3} {0:3d} {2:3d} {1}".format(x.size,x.inmap,x.mem,al[k])
-            k+=1
-
-
 #####################################################
 ############### Network #############################
 #####################################################
-
-def tr(seq):
-    return map(lambda x: isinstance(x,float) and str(round(x,2)) or tr(x), seq)
-
-def fairChoice(metric):
-    "Return a random address from a metric"
-    s=sum(metric)
-    slot=random.randint(0,s-1)
-    n=0
-    while(metric[n]<=slot):
-        slot-=metric[n]
-        n+=1
-    return [n,slot]
 
 class Network:
     def __init__(self):
@@ -332,17 +217,6 @@ class Network:
         self[0].append(Node(0,0))
         self[0][-1].makesource(src_file,blocksize)
 
-    def show(self):
-        level=len(self.layers)-1
-        for layer in reversed(self.layers):
-#            print layer
-            print level,
-            for x in layer.metric():
-                print "|"*x,'-',
-            level-=1
-            print
-        print 
-
     def readMatrix(self,matrix):
         """Puts a new matrix into the source node"""
         self[0][-1].output = matrix
@@ -375,74 +249,3 @@ class Network:
         for x in range(len(self.layers)):
             self.pushup(x)
 #            print x,self[x].output()####
-
-    def attachNode(self,layer,number_of_inputs):
-        "Adds a node to a non-source layer with input random connections"
-        if layer:
-            self.addNode(layer)
-            metric=self[layer-1].metric()
-            s=sum(metric)
-            for x in range(number_of_inputs):
-                connection=[layer-1]+fairChoice(metric)
-                while(connection in self[layer][-1].inmap):
-#                    print connection
-                    connection=[layer-1]+fairChoice(metric)
-                self[layer][-1].connect(connection)
-
-    def graph(self):
-        #dot -Tpng graph.dot > output.png
-        f=open("network.dot",'w')
-        f.write("digraph g {\n")
-        f.write("""rankdir="TB";\n""")
-        f.write("""ranksep="5.0 equally";\n""")
-
-        f.write("""node [front = "16" shape="ellipse"];\n""")
-        f.write("edge [];\n")
-        l=0
-        n=0
-        for layer in self.layers:
-            n=0
-            f.write("""subgraph cluster_"""+str(l)+"""first {
-	 rank=same;
-	 label=" """+str(l) +"""";\n """)
-
-            for node in layer.nodes:
-                f.write(""" "n"""+str(l)+str(n)+"""" \n""")
-                f.write("""  [label = " """)
-                f.write("""{{""")
-                top=len(node.k)
-                if node.source==1:
-                    top=8*node.blocksize
-                for x in range(top):
-                    k=""
-                    if x%8==0:
-                        k="8"
-                    f.write("<"+str(x)+">"+str(k)+"")
-                    if top-1>x:
-                        f.write("|")
-                f.write("}|{")
-                for x in range(node.size):
-                    f.write("<b"+str(x)+">"+str("")+"")
-                    if node.size-1>x:
-                        f.write("|")
-                f.write(""" }}" shape="record" color="blue"]; \n""")
-                n+=1
-            f.write("}\n")
-            l+=1
-        l=0
-        colors=["cyan","blue","crimson","gold","lawngreen","indigo","purple","pink"]
-        for layer in self.layers:
-            n=0
-            for node in layer:
-                k=0
-                for m in node.inmap:                
-                    f.write(""" "n%s%s":b%s -> "n%s%s":%s [color="%s"];\n""" 
-                            % (l,n,k,m[0],m[1],m[2],colors[random.randint(0,len(colors)-1)]))
-                    k+=1
-                n+=1
-            l+=1
-        f.write("}")
-        f.close()
-
-
-
