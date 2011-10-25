@@ -134,19 +134,12 @@ class Layer:
         return self.nodes[n]
 
     def append(self,x):
+        "add a Node to this layer"
         self.nodes.append(x)
         self.length += 1
 
     def metric(self):
         """Return the dimensions of output layer; a list of the sizes of the output layer"""
-        bytesize=8
-        size=[]
-        for node in self.nodes:
-            if(node.source == 0):
-                size.append(len(node.k))
-            else:
-                size.append(bytesize*node.blocksize)
-        return size
 
     def addBlankNode(self,memory=1000):
         self.length+=1
@@ -155,12 +148,6 @@ class Layer:
     def killNode(self,x):
         self.length-=1
         del self.nodes[x]
-
-    def output(self):
-        self.output_layer=[]
-        for x in self.nodes:
-            self.output_layer.append(x.output)
-        return self.output_layer
 
 #####################################################
 ############### Network #############################
@@ -178,15 +165,15 @@ class Network:
         self.layers.append(Layer(0,20,20))
         self.layers[-1].level=len(self.layers)
 
-    def addNode(self,level,memory=1000):
+    def addNode(self,level,node):
         "Add node to a certain layer"
         if level > len(self.layers)-1:
             level=len(self.layers)-1
-        self[level].addBlankNode(memory)
+        self[level].append(node)
 
     def throwNodeNormal(self,sigma,n):
         "Throw a node to watch the 2D input, with random center and spread of sigma on gauss with n inputs"
-        self.addNode(1,100)
+        self.addNode(1,Node(n,100))
         # assuming one input matrix for now
         slots=[]
         for limit in self[0][0].output.shape:
@@ -194,28 +181,13 @@ class Network:
             slots.append([])
             for x in range(n):
                 ans=int(random.gauss(center,sigma))
-                if ans<0: ans=0
-                elif ans>limit-1: ans=limit-1
+                if ans < 0:
+                    ans = 0
+                elif ans > limit-1: 
+                    ans = limit-1
                 slots[-1].append(ans)
         for slot in zip(*slots):
             self[1][-1].connect([0,0,slot])
-
-    def throwNode(self,level,n):
-        "Random connect a node to a layer with n inputs"
-        self.addNode(level)
-
-        for y in range(n):
-            randomNode = random.randint(1, self[level-1].length)-1
-            slot=[]
-            for x in self[level-1][randomNode].output.shape:
-                slot.append(random.randint(0,x-1))
-            self[level][-1].connect([level-1,randomNode,slot])
-        
-    def addSource(self,src_file,blocksize):
-        if len(self.layers)==0:
-            self.addLayer()
-        self[0].append(Node(0,0))
-        self[0][-1].makesource(src_file,blocksize)
 
     def readMatrix(self,matrix):
         """Puts a new matrix into the source node"""
@@ -231,21 +203,7 @@ class Network:
                     values.append(self[cn[0]][cn[1]].output[sl[0]][sl[1]][sl[2]])
                 node.readin(values)
         
-    def pushup(self,level):
-        "Sends input up to the next layer"
-        if level==0:
-            for node in self.layers[0]:
-                node.pullblock()
-                return 1
-        for node in self.layers[level]:#####
-            tmp=[]
-            for x in node.inmap:
-                tmp.append(self[x[0]][x[1]][x[2]])
-            node.readin(tmp)
-        return 1
-
     def cycle(self):
-#       "Processes one epoch"
+        "Processes one epoch"
         for x in range(len(self.layers)):
             self.pushup(x)
-#            print x,self[x].output()####
