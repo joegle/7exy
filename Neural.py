@@ -44,15 +44,24 @@ class Node:
         self.age    = 0
         self.bias   = np.zeros([self.size+3]) #a prior prob
         self.mem    = memory # history buffer size
-        self.hist   = [] #history 
-        self.ohist  = [] #output history
-        self.k      = [] #categories
+        self.hist   = [] # history 
+        self.ohist  = [] # output history
+        self.k      = [] # categories
+        self.ks     = 2  # number of clusters
 
         self.offset = 0
         self.inmap  = [] #3-tuples of (layer,node,slot)
         self.slots  = [] #normalized inmap
         self.r      = 0.5 #introvert or extrovert
         self.margin = 0.2 #margin of error
+
+        self.chain  = [self.updateAge, self.updateHistory, self.computeOutput, self.calcBias,  self.cluster]
+
+
+
+    def makeNode(self,params):
+        self.size=params[0]
+        self.age=params[1]
 
     def connect(self,layer_node_slot):
         """make a connection to this node to a (layer,node,slot)
@@ -64,31 +73,50 @@ class Node:
     def __getitem__(self,n):
         # Don't depend on this 
         return self.output[n]
+    
+    def explain(self):
+        n=1
+        for function in self.chain:
+            
+            print str(n)+". "+function.__name__
+            print "\t"+function.__doc__+"\n"
+            n+=1
+    
+    def readin2(self,x):
+        """update input and do everything in the chain process"""
+        self.input=x[0:self.size]
+        for function in self.chain:
+            function()
          
     def readin(self,x):
         """process one input, takes an array that equals the input array"""
-        self.age+=1
-        self.output=[]
         self.input=x[0:self.size]
+        self.updateAge()
+        self.updateHistory()
+        self.computeOutput()
+        self.calcBias()
+        self.cluster()
 
-        self.updateHistory(self.input)
+        # now compute expectations
+    def updateAge(self):
+        """Update the age of a node"""
+        self.age+=1
 
-        # now compute output
-        for cat in self.k:
-            diff=distance(cat,self.input)
-            self.output.append(diff)
+    def computeOutput(self):
+        """Compute the output vector of the node"""
+        for category in self.k:
+            diff = distance(category,self.input)
+            self.output = diff
             self.ohist.append(diff)
 
-        self.calcBias()
-        self.cluster(2)
-        # now compute expectations
-
-    def cluster(self,n=4):
+ 
+    def cluster(self):
+        """Build the categories of the node by kmeans clustering the history"""
         if len(self.k)==0 and self.age>self.mem:
-            self.k.extend(kmeans(array(self.hist),n)[0])
+            self.k.extend(kmeans(array(self.hist),self.ks)[0])
 
-    def updateHistory(self,x):
-        """Add this term to the history"""
+    def updateHistory(self):
+        """Add the current input to the history"""
         # Condition
         if(0):
             return 0
@@ -96,7 +124,7 @@ class Node:
        #append to history
         if len(self.hist)>=self.mem:#add to history
             self.hist.pop(0)
-        self.hist.append(x)       
+        self.hist.append(self.input)       
         return 1
 
     def calcBias(self):
@@ -181,6 +209,8 @@ class Network:
             slots.append([])
             for x in range(n):
                 ans=int(random.gauss(center,sigma))
+                if(limit<5):
+                    ans=random.randint(0,limit)
                 if ans < 0:
                     ans = 0
                 elif ans > limit-1: 
@@ -201,9 +231,10 @@ class Network:
                 for cn in node.inmap:
                     sl=cn[2]
                     values.append(self[cn[0]][cn[1]].output[sl[0]][sl[1]][sl[2]])
-                node.readin(values)
+                node.readin2(values)
         
     def cycle(self):
         "Processes one epoch"
         for x in range(len(self.layers)):
             self.pushup(x)
+
