@@ -56,7 +56,10 @@ class Node:
         self.r      = 0.5 #introvert or extrovert
         self.margin = 0.2 #margin of error
 
+        self.addresses = []
+
         self.chain  = [self.updateAge, self.updateHistory, self.computeOutput, self.calcBias,  self.cluster]
+
 
     def show(self):
         print "Size: ",self.size, " Age: ",self.age
@@ -85,6 +88,10 @@ class Node:
         if layer_node_slot not in self.inmap:
             self.inmap.append(layer_node_slot)
             self.size=len(self.inmap)
+
+    def addAddress(self,address):
+        self.addresses.append(address)
+        self.size=len(self.addresses)
 
     def explain(self):
         """ show the order of the readin call chain and whats going on"""
