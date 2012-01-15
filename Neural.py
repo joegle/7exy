@@ -30,21 +30,21 @@ def distance(a,b): #co-domain =[0..1]
 
 class Node:
     """A single 'neuron'"""
-    def __init__(self,size,memory=500):
+    def __init__(self):
         self.name   = "" #name to refer 
         self.discription = "" #description of node
-        self.output = [] #output layer buffer
+        self.output = [0] #output layer buffer
         self.input  = [] #input layer buffer
 
         self.source = 0  #source node or not
         self.file   = "" #file source to query
         self.blocksize=20 # number of chars to pull at a time
 
-        self.size   = size #number of inputs
+        self.size   = 2 #number of inputs
         self.age    = 0
         self.bias   = np.zeros([self.size+3]) #a prior prob
         self.obias  = np.zeros([self.size+3]) #a prior prob
-        self.mem    = memory # history buffer size
+        self.mem    = 500 # history buffer size
         self.hist   = [] # history 
         self.ohist  = [] # output history
         self.k      = [] # categories
@@ -58,16 +58,33 @@ class Node:
 
         self.chain  = [self.updateAge, self.updateHistory, self.computeOutput, self.calcBias,  self.cluster]
 
+    def show(self):
+        print "Size: ",self.size, " Age: ",self.age
+        print "Mem: ",self.mem
+        print "Bias:  ",self.bias
+        print "OBias: ",self.obias
+        print "Inmap:"
+        for x in self.inmap:
+            print x
+        print "Categories:"
+        for x in self.k:
+            print x
+        print "Output:"
+        for x in self.output:
+            print x
+
+
     def __getitem__(self,n):
         # Don't depend on this 
         return self.output[n]
+
     
     def connect(self,layer_node_slot):
         """make a connection to this node to a (layer,node,slot)
         updates inmap"""
         if layer_node_slot not in self.inmap:
             self.inmap.append(layer_node_slot)
-            self.size+=1
+            self.size=len(self.inmap)
 
     def explain(self):
         """ show the order of the readin call chain and whats going on"""
@@ -157,7 +174,7 @@ class Layer:
         self.length += 1
 
     def metric(self):
-        """computer the demesion of the output_layer"""
+        """compute the demesion of the output_layer"""
         self.output_layer=[]
         for node in self.nodes:
             self.output_layer.append(len(node.output))
@@ -197,10 +214,32 @@ class Network:
             level=len(self.layers)-1
         self[level].append(node)
 
-        for innput in range(node.size):
-            ns=self[level-1].giveConnection()
-            layer_node_slot = [level-1 , ns[0],ns[1]]
-            node.connect(layer_node_slot)
+
+        if(level==1): #first level add normals
+            sigma=1
+            slots=[]
+            for limit in self[0][0].output.shape:
+                center=random.randint(0,limit-1)
+                slots.append([])
+                for x in range(node.size):
+                    ans=int(random.gauss(center,sigma))
+                    if(limit<5):
+                        ans=random.randint(0,limit)
+                    if ans < 0:
+                        ans = 0
+                    elif ans > limit-1: 
+                        ans = limit-1
+                    slots[-1].append(ans)
+
+            for slot in zip(*slots):
+                self[1][-1].connect([0,0,slot])
+            
+        else:
+            for innput in range(node.size):
+                #other
+                ns=self[level-1].giveConnection()
+                layer_node_slot = [level-1 , ns[0],ns[1]]
+                node.connect(layer_node_slot)
 
     def throwNodeNormal(self,sigma,n):
         "Throw a node to watch the 2D input, with random center and spread of sigma on gauss with n inputs"
@@ -225,15 +264,21 @@ class Network:
     def readMatrix(self,matrix):
         """Puts a new matrix into the source node"""
         self[0][-1].output = matrix
-        
+
     def pullup(self,level):
         "pull up and process the subordinate layer with respect to level; Like pushup()"
         if level!=0: # source layer doesn't have subordinate
             for node in self.layers[level]:
                 values=[]
                 for connection in node.inmap:
-                    sl=connection[2]
-                    values.append(self[connection[0]][connection[1]].output[sl[0]][sl[1]][sl[2]])
+                    if(level==1):
+                        slot=connection[2]
+                        ans=self[connection[0]][connection[1]].output[slot[0]][slot[1]][slot[2]]
+                    else:
+                        slot=connection[2]
+                        ans=self[connection[0]][connection[1]].output[slot]                              
+                    values.append(ans)
+
                 node.readin2(values)
         
     def cycle(self):
