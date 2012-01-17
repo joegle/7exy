@@ -7,7 +7,8 @@ import cv2.cv as cv
 def getRandomMatrixAddress(shape):
     address=[]
     for axis_limit in shape:
-        address.append(r.randint(0,axis_limit))
+        address.append(r.randint(0,axis_limit-1))
+#    print shape,address
     return address
 
 class NodeTest:
@@ -63,13 +64,32 @@ class NodeTest:
     def giveNodeRandomConnection(self,node):
         address=getRandomMatrixAddress(self.shape)
         node.addAddress(address)
+
+    def getElement(self,address):
+        return self.matrix.item(tuple(address))
+
+    def getNodeData(self,node):
+        data=[]
+        for address in node.addresses:
+            ans=self.getElement(address)
+            data.append(ans)
+        return data
+    
+    def f(self):
+        for node in self.layer:
+            print self.getNodeData(node)
+        
         
 
 test=NodeTest()
 test.populateFirstLayer(2)
 while 1:
     test.readFrame()
-    print test.layer[1].addresses
+    test.f()
+#    a= test.layer[0].addresses[1]
+#    print a,test.shape
+#    print test.getElement(a)
+#    print test.getNodeData(test.layer[0])
     if cv.WaitKey(6) == 27:
         break
 
