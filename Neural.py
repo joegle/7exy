@@ -10,7 +10,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 """
 
 import numpy as np
-from scipy.cluster.vq import vq, kmeans, whiten
+from scipy.cluster.vq import vq, kmeans
 from numpy import linalg as LA
 from numpy import array, mean
 
@@ -50,7 +50,6 @@ class Node:
         self.k      = [] # categories
         self.ks     = 2  # number of clusters
 
-        self.offset = 0
         self.inmap  = [] #3-tuples of (layer,node,slot)
         self.slots  = [] #normalized inmap
         self.r      = 0.5 #introvert or extrovert
