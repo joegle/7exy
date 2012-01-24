@@ -69,7 +69,7 @@ class NodeTest:
 
     def backProjectNode(self,node):
         #print node.addresses
-        for a,b in zip(node.addresses,node.input):
+        for a,b in zip(node.addresses,node.bias):
             self.backprojection[a[0]][a[1]][a[2]]=b
         #self.backprojection.put(np.array(node.addresses),np.array(node.input))
 
@@ -88,7 +88,6 @@ class NodeTest:
             #cv.SetData( cv_im, a.tostring(),  a.dtype.itemsize * nChannels * a.shape[1] )            
             #1920
             #mat=cv.CreateMat(self.shape[ 0 ],self.shape[1],cv.CV_8UC3)
-            #mat=cv.fromarray(self.backprojection)
             #img=cv.CreateImage((self.shape[1],self.shape[0]),8,3)
             #cv.SetData(img,self.backprojection,1920)
             cv.ShowImage("back",cv.fromarray(self.backprojection,False))
