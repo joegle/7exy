@@ -11,7 +11,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
 import numpy as np
 import random as r
-from scipy.cluster.vq import vq, kmeans
+from scipy.cluster.vq import kmeans2
 from numpy import linalg as LA
 from numpy import array, mean
 import cv2.cv as cv
@@ -139,7 +139,9 @@ class Node:
     def cluster(self):
         """Build the categories of the node by kmeans clustering the history"""
         if len(self.k)==0 and self.age>self.mem:
-            self.k.extend(kmeans(array(self.hist),self.ks)[0])
+            a = array(self.hist).astype(np.float)
+            means = kmeans2(a, self.ks, minit='points')
+            self.k.extend(means[0])
 
     def updateHistory(self):
         """Add the current input to the history"""
