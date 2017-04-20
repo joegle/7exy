@@ -37,6 +37,21 @@ def getRandomMatrixAddress(shape):
         address.append(r.randint(0,axis_limit-1))
     return address
 
+def tri(m, orientation = 0):
+    """get indices of corners of triangle in a square matrix, orientation is 0..3"""
+    n = m.shape[0] - 1
+    mid = n / 2
+    m_corners = [(0,0), (0,n), (n,n), (n,0), (0,0)]
+    mid_points = [(n, mid), (mid,0), (0,mid), (mid,n)]
+
+    g = []
+
+    g.append(m_corners[orientation])
+    g.append(m_corners[orientation + 1])
+    g.append(mid_points[orientation])
+
+    return g
+
 class Node:
     """A single 'neuron'"""
     def __init__(self):
