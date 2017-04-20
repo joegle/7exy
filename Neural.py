@@ -52,6 +52,24 @@ def tri(m, orientation = 0):
 
     return g
 
+def hex(m, orientation = 0):
+    """get indices of vertices of hexagon in a square matrix, orienation is 0..5"""
+    n = m.shape[0] - 1
+    mid = n / 2
+    third = int(round(n * 0.3333))
+    two = int(round(n* 0.6666))
+
+    g = [(0, third), (0, two) ]
+
+    g.append((mid, n))
+    g.append((n, two))
+    g.append((n, third))
+    g.append((mid,0))
+
+    g  = g[orientation:] + g[:orientation]
+
+    return g
+
 class Node:
     """A single 'neuron'"""
     def __init__(self):
