@@ -1,25 +1,18 @@
 import Neural
-import random as r
 
+# Create a network
 N=Neural.Network()
 
-#add a source(and a node)
-N.addSource("data/Canyon.html",5)
+# Add some nodes
+N.populateFirstLayer(1000)
 
-N.addLayer() #layer 1 (bottom layer is 0
+# Repeatedly process a frame from camera (must have OpenCV)
+while 1:
+    N.readFrame()
+    N.pullUp()
+    if Neural.cv.WaitKey(6)==27:
+        break
 
 
-period=5000
-population=200
-for x in range(population):
-    N.attachNode(1,r.randrange(3,6))
-
-N.addLayer() #layer 1 (bottom layer is 0
-
-for x in range(population):
-    N.attachNode(1,r.randrange(3,6))
-
-for x in range(period):
-    N.cycle()
 
 

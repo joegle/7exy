@@ -10,14 +10,16 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 """
 
 import numpy as np
-from scipy.cluster.vq import vq, kmeans, whiten
+import random as r
+from scipy.cluster.vq import kmeans2
 from numpy import linalg as LA
 from numpy import array, mean
+import cv2.cv as cv
+
 
 import pickle
 import itertools
 import math
-import random
 import copy
 import itertools
 import string
@@ -27,6 +29,46 @@ def distance(a,b): #co-domain =[0..1]
     """euclidean normalized distance between two vectors"""
     shorter=min(len(a),len(b))
     return 1-(LA.norm(a-b)/math.sqrt(shorter*1.0))
+
+def getRandomMatrixAddress(shape):
+    """Return a random address to a matrix of the shape"""
+    address=[]
+    for axis_limit in shape:
+        address.append(r.randint(0,axis_limit-1))
+    return address
+
+def tri(m, orientation = 0):
+    """get indices of corners of triangle in a square matrix, orientation is 0..3"""
+    n = m.shape[0] - 1
+    mid = n / 2
+    m_corners = [(0,0), (0,n), (n,n), (n,0), (0,0)]
+    mid_points = [(n, mid), (mid,0), (0,mid), (mid,n)]
+
+    g = []
+
+    g.append(m_corners[orientation])
+    g.append(m_corners[orientation + 1])
+    g.append(mid_points[orientation])
+
+    return g
+
+def hex(m, orientation = 0):
+    """get indices of vertices of hexagon in a square matrix, orienation is 0..5"""
+    n = m.shape[0] - 1
+    mid = n / 2
+    third = int(round(n * 0.3333))
+    two = int(round(n* 0.6666))
+
+    g = [(0, third), (0, two) ]
+
+    g.append((mid, n))
+    g.append((n, two))
+    g.append((n, third))
+    g.append((mid,0))
+
+    g  = g[orientation:] + g[:orientation]
+
+    return g
 
 class Node:
     """A single 'neuron'"""
@@ -50,13 +92,15 @@ class Node:
         self.k      = [] # categories
         self.ks     = 2  # number of clusters
 
-        self.offset = 0
         self.inmap  = [] #3-tuples of (layer,node,slot)
         self.slots  = [] #normalized inmap
         self.r      = 0.5 #introvert or extrovert
         self.margin = 0.2 #margin of error
 
+        self.addresses = []
+
         self.chain  = [self.updateAge, self.updateHistory, self.computeOutput, self.calcBias,  self.cluster]
+
 
     def show(self):
         print "Size: ",self.size, " Age: ",self.age
@@ -85,6 +129,10 @@ class Node:
         if layer_node_slot not in self.inmap:
             self.inmap.append(layer_node_slot)
             self.size=len(self.inmap)
+
+    def addAddress(self,address):
+        self.addresses.append(address)
+        self.size=len(self.addresses)
 
     def explain(self):
         """ show the order of the readin call chain and whats going on"""
@@ -124,7 +172,9 @@ class Node:
     def cluster(self):
         """Build the categories of the node by kmeans clustering the history"""
         if len(self.k)==0 and self.age>self.mem:
-            self.k.extend(kmeans(array(self.hist),self.ks)[0])
+            a = array(self.hist).astype(np.float)
+            means = kmeans2(a, self.ks, minit='points')
+            self.k.extend(means[0])
 
     def updateHistory(self):
         """Add the current input to the history"""
@@ -142,7 +192,7 @@ class Node:
         """Update the bias vector of expected value for inputs"""
 
         # Condition to satisfy in order to update
-        if random.randint(0,self.mem)==0:
+        if r.randint(0,self.mem)==0:
             self.bias=array(self.hist).mean(axis=0)
             self.obias=array(self.ohist).mean(axis=0)
 
@@ -180,8 +230,8 @@ class Layer:
             self.output_layer.append(len(node.output))
         
     def giveConnection(self):
-        node=random.randint(0,self.length-1)
-        slot=random.randint(0,len(self.nodes[node].k))
+        node=r.randint(0,self.length-1)
+        slot=r.randint(0,len(self.nodes[node].k))
         return [node, slot]
 
     def addBlankNode(self,memory=1000):
@@ -196,93 +246,116 @@ class Layer:
 ############### Network #############################
 #####################################################
 
-class Network:
-    def __init__(self):
-        self.shape=[]
-        self.layers=[]
-
-    def __getitem__(self,n):
-        return self.layers[n]
-
-    def addLayer(self): #on top
-        self.layers.append(Layer())
-        self.layers[-1].level=len(self.layers)
-
-    def addNode(self,level,node):
-        "Add node to a certain layer"
-        if level > len(self.layers)-1:
-            level=len(self.layers)-1
-        self[level].append(node)
-
-
-        if(level==1): #first level add normals
-            sigma=1
-            slots=[]
-            for limit in self[0][0].output.shape:
-                center=random.randint(0,limit-1)
-                slots.append([])
-                for x in range(node.size):
-                    ans=int(random.gauss(center,sigma))
-                    if(limit<5):
-                        ans=random.randint(0,limit)
-                    if ans < 0:
-                        ans = 0
-                    elif ans > limit-1: 
-                        ans = limit-1
-                    slots[-1].append(ans)
-
-            for slot in zip(*slots):
-                self[1][-1].connect([0,0,slot])
-            
-        else:
-            for innput in range(node.size):
-                #other
-                ns=self[level-1].giveConnection()
-                layer_node_slot = [level-1 , ns[0],ns[1]]
-                node.connect(layer_node_slot)
-
-    def throwNodeNormal(self,sigma,n):
-        "Throw a node to watch the 2D input, with random center and spread of sigma on gauss with n inputs"
-        self[1].append(Node(n,100))
-        # assuming one input matrix for now
-        slots=[]
-        for limit in self[0][0].output.shape:
-            center=random.randint(0,limit-1)
-            slots.append([])
-            for x in range(n):
-                ans=int(random.gauss(center,sigma))
-                if(limit<5):
-                    ans=random.randint(0,limit)
-                if ans < 0:
-                    ans = 0
-                elif ans > limit-1: 
-                    ans = limit-1
-                slots[-1].append(ans)
-        for slot in zip(*slots):
-            self[1][-1].connect([0,0,slot])
-
-    def readMatrix(self,matrix):
-        """Puts a new matrix into the source node"""
-        self[0][-1].output = matrix
-
-    def pullup(self,level):
-        "pull up and process the subordinate layer with respect to level; Like pushup()"
-        if level!=0: # source layer doesn't have subordinate
-            for node in self.layers[level]:
-                values=[]
-                for connection in node.inmap:
-                    if(level==1):
-                        slot=connection[2]
-                        ans=self[connection[0]][connection[1]].output[slot[0]][slot[1]][slot[2]]
-                    else:
-                        slot=connection[2]
-                        ans=self[connection[0]][connection[1]].output[slot]                              
-                    values.append(ans)
-
-                node.readin2(values)
         
-    def cycle(self):
-        "Processes one epoch"
-        for x in range(len(self.layers)):
-            self.pushup(x)
+class Network:
+    """Tests nodes"""
+    def __init__(self):
+        self.vis=False
+        self.back=True
+        self.shape=0
+        self.node=Node()
+        self.layer=[]
 
+
+        self.matrix=[]
+        self.image=[]
+        self.capture=0
+        self.visionSetup()
+        self.backprojection=np.zeros(self.shape)
+
+    
+    def setVis(self,value):
+        if self.vis!=value:
+            self.vis=value
+            cv.NamedWindow("camera", 1)
+
+
+    def visionSetup(self):
+        if self.vis:
+            cv.NamedWindow("camera", 1)
+        if self.back:
+            cv.NamedWindow("back", 1)
+        self.capture = cv.CaptureFromCAM(0)
+        self.shape=self.getShape()
+        self.backprojection=np.zeros(self.shape)
+
+    def backProject(self):
+        self.backprojection=np.zeros(self.shape).astype(np.uint8)
+        for node in self.layer:
+            self.backProjectNode(node)
+
+
+    def backProjectNode(self,node):
+        #print node.addresses
+        for a,b in zip(node.addresses,node.bias):
+            self.backprojection[a[0]][a[1]][a[2]]=b
+        #self.backprojection.put(np.array(node.addresses),np.array(node.input))
+
+    def getShape(self):
+        self.image = cv.GetMat(cv.QueryFrame(self.capture))
+        n = (np.asarray(self.image)).astype(np.uint8)
+        return n.shape
+    
+    def readFrame(self):
+        self.image = cv.GetMat(cv.QueryFrame(self.capture))
+        if(self.vis):
+            cv.ShowImage("camera", self.image)
+
+        if self.back:            
+            self.backProject()
+            #cv.SetData( cv_im, a.tostring(),  a.dtype.itemsize * nChannels * a.shape[1] )            
+            #1920
+            #mat=cv.CreateMat(self.shape[ 0 ],self.shape[1],cv.CV_8UC3)
+            #img=cv.CreateImage((self.shape[1],self.shape[0]),8,3)
+            #cv.SetData(img,self.backprojection,1920)
+            cv.ShowImage("back",cv.fromarray(self.backprojection,False))
+            
+        self.matrix = (np.asarray(self.image)).astype(np.uint8)
+
+    def populateFirstLayer(self,n):
+        self.layer=[]
+        for x in range(n):
+            self.layer.append(self.makeNode())
+
+    def addNodeToFirstLayer(self,node):
+        self.layer.append(node)
+        
+
+    def makeNode(self):
+
+        setattr(self.node,"mem",100)
+        
+        s=max(2,int(np.random.normal(4,2)))
+        setattr(self.node,"size",s)
+
+        clone=copy.deepcopy(self.node)
+        for x in range(clone.size):
+            self.giveNodeRandomConnection(clone)
+        return clone
+
+    def giveNodeRandomConnection(self,node):
+        address=getRandomMatrixAddress(self.shape)
+        node.addAddress(address)
+
+    def getElement(self,address):
+        return self.matrix.item(tuple(address))
+
+    def getNodeData(self,node):
+        data=[]
+        for address in node.addresses:
+            ans=self.getElement(address)
+            data.append(ans)
+        return data
+
+    def pullUp(self):
+        """ First layer nodes collect and process their data"""
+        for node in self.layer:
+            data = self.getNodeData(node)
+            node.readin2(data)
+#        self.f()
+            
+
+    def f(self):
+        for node in self.layer:
+            print node.bias,
+        print
